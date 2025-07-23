@@ -1,76 +1,79 @@
-# Uav-Tracking/isaac_sim_scripts/main_simulation.py (V17 - Final Integration of All Verified Components)
+# Uav-Tracking/isaac_sim_scripts/main_simulation.py (V27 - Golden Standard with Correct Variable Scope)
 
 import carb
-import asyncio
-import omni.kit.app
+import os
+import sys
+import time
+
+# 1. SimulationApp 是启动一切的根源
+CONFIG = {"headless": False}
+from isaacsim import SimulationApp
+simulation_app = SimulationApp(CONFIG)
+
+# 2. 导入所有需要的模块
+from isaacsim.core.api import World
+from isaacsim.core.utils import extensions, stage
+from isaacsim.core.utils.nucleus import get_assets_root_path
+from isaacsim.core.prims import SingleArticulation
 import numpy as np
 
-# --- 导入所有经过验证的、正确的模块 ---
-from omni.isaac.core import World
-from omni.isaac.core.utils import extensions
-from isaacsim.core.utils.stage import add_reference_to_stage
-from isaacsim.core.prims import Articulation
-from omni.isaac.core.utils.nucleus import get_assets_root_path
-from isaacsim.core.api.objects import FixedCuboid
-
-# -----------------------------------------------------------------------------
-# 我们的核心场景搭建逻辑
-# -----------------------------------------------------------------------------
-async def setup_scene_logic():
-    # 等待一帧，确保所有内容准备就绪
-    await omni.kit.app.get_app().next_update_async()
-    
-    world = World() 
-    
-    # a. 添加地面
-    world.scene.add_default_ground_plane(prim_path="/World/ground_plane", z_position=0)
-
-    # b. 加载无人机
+# 3. 主程序逻辑
+def main():
+    """自动化仿真的主函数"""
+    # 核心修正：将所有配置变量的定义移入 main 函数的作用域内
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
-        carb.log_error("Could not find Isaac Sim assets folder.")
-        return
+        carb.log_error("未能获取到资产根目录。")
+        sys.exit(1)
+    
+    carb.log_info(f"成功获取到资产根目录: {assets_root_path}")
+
+    crazyflie_usd_path = f"{assets_root_path}/Isaac/Robots/Crazyflie/cf2x.usd"
+    crazyflie_prim_path = "/World/Crazyflie"
+    ground_plane_prim_path = "/World/ground_plane"
+
+    # 现在，函数内的所有代码都可以直接访问这些局部变量
+    try:
+        if not os.path.exists(crazyflie_usd_path):
+            carb.log_error(f"Crazyflie USD 文件在动态路径下未找到：{crazyflie_usd_path}")
+            sys.exit(1)
+
+        extensions.enable_extension("isaacsim.ros2.bridge")
         
-    drone_usd_path = assets_root_path + "/Isaac/Robots/Crazyflie/cf2x.usd"
-    drone_prim_path = "/World/Crazyflie"
-    
-    add_reference_to_stage(usd_path=drone_usd_path, prim_path=drone_prim_path)
-    
-    drone_robot = world.scene.add(
-        Articulation(
-            prim_path=drone_prim_path,
-            name="crazyflie_drone",
-            position=np.array([0, 0, 1.0])
+        world = World()
+        
+        world.scene.add_default_ground_plane(prim_path=ground_plane_prim_path)
+        stage.add_reference_to_stage(usd_path=crazyflie_usd_path, prim_path=crazyflie_prim_path)
+        
+        crazyflie_robot = world.scene.add(
+            SingleArticulation(
+                prim_path=crazyflie_prim_path,
+                name="crazyflie_drone",
+                position=np.array([0, 0, 1.0])
+            )
         )
-    )
+        
+        world.reset()
 
-    # c. 启用ROS 2桥接
-    extensions.enable_extension("omni.isaac.ros2.bridge")
-    
-    # d. 重置世界以应用所有更改并初始化物理
-    await world.reset_async()
-    
-    # e. 在重置后初始化机器人
-    if drone_robot:
-        drone_robot.initialize()
+        crazyflie_robot.initialize()
+        carb.log_info(f"Crazyflie 关节已初始化。自由度数量: {crazyflie_robot.num_dof}")
 
-    print("\n[SUCCESS] Scene setup complete via StartupHandler.")
-    print("Press PLAY to start simulation and send ROS 2 commands.\n")
+        print("\n" + "="*50)
+        print("【里程碑达成】 自动化场景加载成功！")
+        print("【下一步行动】 请在另一个 WSL2 终端中启动 ROS 2 控制节点。")
+        print("                 仿真将持续运行，按 Ctrl+C 关闭此终端以结束。")
+        print("="*50 + "\n")
 
-# -----------------------------------------------------------------------------
-# 【经过验证的自启动框架】
-# -----------------------------------------------------------------------------
-class StartupHandler:
-    def __init__(self):
-        self.subscription = None
-    def on_update(self, e: carb.events.IEvent):
-        if omni.kit.app.get_app().is_app_ready():
-            asyncio.ensure_future(setup_scene_logic())
-            if self.subscription:
-                self.subscription.unsubscribe()
-                self.subscription = None
+        while simulation_app.is_running():
+            world.step(render=True)
 
-# --- 脚本主入口 ---
-handler = StartupHandler()
-update_stream = omni.kit.app.get_app().get_update_event_stream()
-handler.subscription = update_stream.create_subscription_to_pop(handler.on_update, name="uav_tracking_startup")
+    except Exception as e:
+        carb.log_error(f"主程序发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        simulation_app.close()
+
+# 4. 脚本主入口
+if __name__ == "__main__":
+    main()
