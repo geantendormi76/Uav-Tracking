@@ -14,6 +14,7 @@ build/
 install/
 log/
 sim_scripts/
+assets/*
 
 # Simulation scripts (as requested)
 sim_scripts/
