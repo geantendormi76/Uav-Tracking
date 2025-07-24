@@ -1,69 +1,59 @@
-# Uav-Tracking/isaac_sim_scripts/main_simulation.py (V27 - Golden Standard with Correct Variable Scope)
+# isaac_sim_scripts/main_simulation.py (V41 - FINAL GOLDEN STANDARD)
 
 import carb
-import os
 import sys
-import time
 
 # 1. SimulationApp 是启动一切的根源
 CONFIG = {"headless": False}
 from isaacsim import SimulationApp
 simulation_app = SimulationApp(CONFIG)
 
-# 2. 导入所有需要的模块
+# 2. 在 SimulationApp 实例化后，安全地导入所有其他模块
+import omni.graph.core as og
 from isaacsim.core.api import World
-from isaacsim.core.utils import extensions, stage
-from isaacsim.core.utils.nucleus import get_assets_root_path
-from isaacsim.core.prims import SingleArticulation
-import numpy as np
+from isaacsim.core.utils import extensions
+from managers.scene_manager import SceneManager
+from managers.controller_manager import ControllerManager
 
-# 3. 主程序逻辑
+# -----------------------------------------------------------------------------
+# 主程序逻辑
+# -----------------------------------------------------------------------------
 def main():
-    """自动化仿真的主函数"""
-    # 核心修正：将所有配置变量的定义移入 main 函数的作用域内
-    assets_root_path = get_assets_root_path()
-    if assets_root_path is None:
-        carb.log_error("未能获取到资产根目录。")
-        sys.exit(1)
-    
-    carb.log_info(f"成功获取到资产根目录: {assets_root_path}")
-
-    crazyflie_usd_path = f"{assets_root_path}/Isaac/Robots/Crazyflie/cf2x.usd"
-    crazyflie_prim_path = "/World/Crazyflie"
-    ground_plane_prim_path = "/World/ground_plane"
-
-    # 现在，函数内的所有代码都可以直接访问这些局部变量
+    """自动化仿真的主函数，负责协调各个模块。"""
     try:
-        if not os.path.exists(crazyflie_usd_path):
-            carb.log_error(f"Crazyflie USD 文件在动态路径下未找到：{crazyflie_usd_path}")
-            sys.exit(1)
-
+        # a. 严格使用官方 Extensions API 列表中的正确扩展ID
         extensions.enable_extension("isaacsim.ros2.bridge")
+        extensions.enable_extension("isaacsim.core.nodes")
+
+        # b. 让应用先空跑几帧，确保所有扩展完成内部注册
+        for _ in range(5):
+            simulation_app.update()
         
+        # c. 创建 World 实例
         world = World()
         
-        world.scene.add_default_ground_plane(prim_path=ground_plane_prim_path)
-        stage.add_reference_to_stage(usd_path=crazyflie_usd_path, prim_path=crazyflie_prim_path)
+        # d. 搭建场景
+        scene_manager = SceneManager()
+        scene_manager.setup_scene(world)
         
-        crazyflie_robot = world.scene.add(
-            SingleArticulation(
-                prim_path=crazyflie_prim_path,
-                name="crazyflie_drone",
-                position=np.array([0, 0, 1.0])
-            )
-        )
+        # e. 在 main 函数的上下文中，直接创建 OmniGraph
+        controller_manager = ControllerManager(robot_prim_path=scene_manager.drone_prim_path)
+        graph_spec, edit_commands = controller_manager.get_ros_control_graph_spec()
         
+        og.Controller.edit(graph_spec, edit_commands)
+        
+        # f. 重置世界并初始化机器人
         world.reset()
-
-        crazyflie_robot.initialize()
-        carb.log_info(f"Crazyflie 关节已初始化。自由度数量: {crazyflie_robot.num_dof}")
-
+        
+        scene_manager.drone_robot.initialize()
+        
         print("\n" + "="*50)
-        print("【里程碑达成】 自动化场景加载成功！")
+        print("【里程碑达成】 最终模块化架构加载成功！")
         print("【下一步行动】 请在另一个 WSL2 终端中启动 ROS 2 控制节点。")
-        print("                 仿真将持续运行，按 Ctrl+C 关闭此终端以结束。")
+        print("                 观察无人机是否起飞。")
         print("="*50 + "\n")
 
+        # g. 进入仿真循环
         while simulation_app.is_running():
             world.step(render=True)
 
@@ -74,6 +64,6 @@ def main():
     finally:
         simulation_app.close()
 
-# 4. 脚本主入口
+# 脚本主入口
 if __name__ == "__main__":
     main()
