@@ -103,53 +103,10 @@ C:\Windows\System32\cmd.exe /c start "" "D:\笔记"
               - ./my_rules.yaml
             ```
 
----
-
-#### **第二阶段：引擎搭建 - WSL2 与自动化代理配置**
-
-*此阶段在Windows Terminal中完成，构建Linux核心。*
-
-1.  **安装WSL2与Ubuntu：**
-    *   以**管理员身份**打开Windows Terminal，执行 `wsl --install -d Ubuntu-22.04`。
-    *   重启后设置Linux用户名和密码。
-
-2.  **回归经典NAT模式：**
-    *   **确保 `C:\Users\<YourUsername>\.wslconfig` 文件不存在或内容为空。**
-
-3.  **执行自动化代理配置脚本 (核心步骤)：**
-    *   启动WSL2终端 (Ubuntu)。
-    *   创建并执行脚本：
-        ```bash
-        nano ~/configure_proxy_nat.sh
-        ```
-        
-    *   粘贴以下脚本内容进去，然后保存退出: Ctrl+X, Y, Enter
-        
-        ```bash
-        #!/bin/bash
-        HOST_IP=$(grep nameserver /etc/resolv.conf | awk '{print $2}')
-        PROXY_PORT=7897
-        PROXY_HTTP="http://${HOST_IP}:${PROXY_PORT}"
-        echo "正在为当前用户配置 .bashrc ..."
-        sed -i '/# PROXY-START/,/# PROXY-END/d' ~/.bashrc
-        { echo ''; echo '# PROXY-START - NAT Mode Auto-Config'; echo "export http_proxy=\"${PROXY_HTTP}\""; echo "export https_proxy=\"${PROXY_HTTP}\""; echo "export no_proxy=\"localhost,127.0.0.1,*.local\""; echo '# PROXY-END'; } >> ~/.bashrc
-        echo "正在为 'apt' 创建代理配置文件..."
-        APT_PROXY_CONF_FILE="/etc/apt/apt.conf.d/99proxy.conf"
-        echo "Acquire::http::Proxy \"${PROXY_HTTP}\";" | sudo tee ${APT_PROXY_CONF_FILE} > /dev/null
-        echo "Acquire::https::Proxy \"${PROXY_HTTP}\";" | sudo tee -a ${APT_PROXY_CONF_FILE} > /dev/null
-        echo "经典NAT模式网络配置完成！代理已指向: ${PROXY_HTTP}"
-        
-        # 赋予权限并执行
-        chmod +x ~/configure_proxy_nat.sh
-        ~/configure_proxy_nat.sh
-        
-        # 让配置在当前终端立即生效
-        source ~/.bashrc
-        ```
 
 ---
 
-#### **第三阶段：终端环境终极进化 - Zsh + Oh My Zsh**
+#### **第二阶段：终端环境终极进化 - Zsh + Oh My Zsh**
 
 *此阶段在WSL2终端内完成，打造顶级的命令行体验。*
 
@@ -181,7 +138,7 @@ C:\Windows\System32\cmd.exe /c start "" "D:\笔记"
 
 ---
 
-#### **第四阶段：容器、软件源与开发工具链**
+#### **第三阶段：容器、软件源与开发工具链**
 
 *此阶段在WSL2终端内完成，安装所有必要的开发工具。*
 
@@ -208,7 +165,7 @@ docker pull hello-world
 ```
 
 
-#### **第五阶段：开发环境 - 工具链安装 (WSL2内部)**
+#### **第四阶段：开发环境 - 工具链安装 (WSL2内部)**
 
 *   **配置Apt阿里云镜像源：**
     ```bash
@@ -258,7 +215,7 @@ docker pull hello-world
     alias 】=clear
     ```
 
-### **第六阶段：核心依赖 - Isaac Sim 环境准备**
+### **第五阶段：核心依赖 - Isaac Sim 环境准备**
 
 1.  **安装CUDA Toolkit (在WSL2内部)：**
     *   **重要：** 查阅您Isaac Sim版本的官方文档，确定需要的CUDA版本（例如12.2）。
@@ -309,7 +266,7 @@ docker pull hello-world
     *   **完成！** VS Code会自动处理所有路径问题，**无需也绝不应该**手动创建任何符号链接。
 
 
-#### **步骤七：WSL2系统语言环境优化 (中文化)**
+#### **步骤六：WSL2系统语言环境优化 (中文化)**
 
 *   **目标：** 为WSL2添加完整的中文语言包支持，并将系统默认区域设置为中文。
 
@@ -335,7 +292,7 @@ docker pull hello-world
             ```
         *   您应该能看到类似 `LANG=zh_CN.UTF-8` 的输出，以及其他所有 `LC_*` 变量也都设置为了 `zh_CN.UTF-8`。这意味着系统语言环境已成功切换。
 
-#### **步骤八：系统状态最终检查**
+#### **步骤七：系统状态最终检查**
 
 *   **目标：** 确认所有关键组件都处于预期的工作状态。
 
@@ -378,7 +335,7 @@ docker pull hello-world
         # 预期输出: Cuda compilation tools, release 12.4, V12.4.x
         ```
 
-#### **步骤 九：系统稳定性强化 - 根治时钟偏斜**
+#### **步骤 八：系统稳定性强化 - 根治时钟偏斜**
 
 *   **目标：** 解决WSL2与Windows宿主机的时间差问题，避免编译工具因时间戳错乱而产生不可预知的构建错误。
 
