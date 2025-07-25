@@ -5,7 +5,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%2011%20%7C%20WSL2-lightgrey.svg)
 [![GitHub stars](https://img.shields.io/github/stars/YourGitHubUsername/Uav-Tracking.svg?style=social)](https://github.com/YourGitHubUsername/Uav-Tracking/stargazers)
 
-![键盘遥控演示](./docs/assets/ros2-teleop-keyboard-demo.gif)
+![键盘遥控演示](./assets/ros2-teleop-keyboard-demo.gif)
 
 ---
 
